@@ -14,12 +14,12 @@ module Delayed
 
     DIR_PWD = Pathname.new Dir.pwd
 
-    def initialize(args) # rubocop:disable MethodLength
+    def initialize(args, **options) # rubocop:disable MethodLength
       @options = {
         :quiet => true,
         :pid_dir => "#{root}/tmp/pids",
         :log_dir => "#{root}/log"
-      }
+      }.merge!(options)
 
       @worker_count = 1
       @monitor = false
@@ -114,7 +114,7 @@ module Delayed
 
     def run_process(process_name, options = {})
       Delayed::Worker.before_fork
-      Daemons.run_proc(process_name, :dir => options[:pid_dir], :dir_mode => :normal, :monitor => @monitor, :ARGV => @args) do |*_args|
+      Daemons.run_proc(process_name, :dir => options[:pid_dir], :dir_mode => :normal, :monitor => @monitor, :force_kill_waittime => options[:force_kill_waittime], :ARGV => @args) do |*_args|
         $0 = File.join(options[:prefix], process_name) if @options[:prefix]
         run process_name, options
       end
