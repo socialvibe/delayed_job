@@ -124,6 +124,7 @@ module Delayed
     def initialize(options = {})
       @quiet = options.key?(:quiet) ? options[:quiet] : true
       @failed_reserve_count = 0
+      @busy = false
 
       [:min_priority, :max_priority, :sleep_delay, :read_ahead, :queues, :exit_on_complete].each do |option|
         self.class.send("#{option}=", options[option]) if options.key?(option)
@@ -149,13 +150,25 @@ module Delayed
 
     def start # rubocop:disable CyclomaticComplexity, PerceivedComplexity
       trap('TERM') do
-        Thread.new { say 'Exiting...' }
+        Thread.new do
+          if @busy
+            say 'Received TERM. Still working, will exit when done...'
+          else
+            say 'Received TERM...'
+          end
+        end
         stop
         raise SignalException, 'TERM' if self.class.raise_signal_exceptions
       end
 
       trap('INT') do
-        Thread.new { say 'Exiting...' }
+        Thread.new do
+          if @busy
+            say 'Received INT. Still working, will exit when done...'
+          else
+            say 'Received INT...'
+          end
+        end
         stop
         raise SignalException, 'INT' if self.class.raise_signal_exceptions && self.class.raise_signal_exceptions != :term
       end
@@ -184,7 +197,10 @@ module Delayed
             say format("#{count} jobs processed at %.4f j/s, %d failed", count / @realtime, @result.last)
           end
 
-          break if stop?
+          if stop?
+            say "Exiting..."
+            break
+          end
         end
       end
     end
@@ -296,7 +312,10 @@ module Delayed
     # If no jobs are left we return nil
     def reserve_and_run_one_job
       job = reserve_job
-      self.class.lifecycle.run_callbacks(:perform, self, job) { run(job) } if job
+      if job
+        @busy = true
+        self.class.lifecycle.run_callbacks(:perform, self, job) { run(job) }
+      end
     end
 
     def reserve_job
