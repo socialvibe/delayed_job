@@ -125,6 +125,7 @@ module Delayed
       @quiet = options.key?(:quiet) ? options[:quiet] : true
       @failed_reserve_count = 0
       @busy = false
+      @attempted_stop = false
 
       [:min_priority, :max_priority, :sleep_delay, :read_ahead, :queues, :exit_on_complete].each do |option|
         self.class.send("#{option}=", options[option]) if options.key?(option)
@@ -150,8 +151,10 @@ module Delayed
 
     def start # rubocop:disable CyclomaticComplexity, PerceivedComplexity
       trap('TERM') do
+        raise SignalException, 'TERM' if @attempted_stop
         Thread.new do
           if @busy
+            @attempted_stop = true
             say 'Received TERM. Still working, will exit when done...'
           else
             say 'Received TERM...'
@@ -162,9 +165,11 @@ module Delayed
       end
 
       trap('INT') do
+        raise SignalException, 'INT' if @attempted_stop
         Thread.new do
           if @busy
-            say 'Received INT. Still working, will exit when done...'
+            @attempted_stop = true
+            say 'Received INT. Still working, will exit when done... (^C again to exit immediately)'
           else
             say 'Received INT...'
           end
