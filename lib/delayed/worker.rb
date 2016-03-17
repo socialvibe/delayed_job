@@ -1,8 +1,7 @@
 require 'timeout'
+require 'active_support/dependencies'
 require 'active_support/core_ext/numeric/time'
 require 'active_support/core_ext/class/attribute_accessors'
-require 'active_support/core_ext/kernel'
-require 'active_support/core_ext/enumerable'
 require 'logger'
 require 'benchmark'
 
@@ -15,12 +14,13 @@ module Delayed
     DEFAULT_DEFAULT_PRIORITY = 0
     DEFAULT_DELAY_JOBS       = true
     DEFAULT_QUEUES           = []
+    DEFAULT_QUEUE_ATTRIBUTES = []
     DEFAULT_READ_AHEAD       = 5
 
     cattr_accessor :min_priority, :max_priority, :max_attempts, :max_run_time,
                    :default_priority, :sleep_delay, :logger, :delay_jobs, :queues,
                    :read_ahead, :plugins, :destroy_failed_jobs, :exit_on_complete,
-                   :default_log_level
+                   :default_log_level, :queue_attributes
 
     # Named queue into which jobs are enqueued by default
     cattr_accessor :default_queue_name
@@ -38,6 +38,7 @@ module Delayed
       self.default_priority  = DEFAULT_DEFAULT_PRIORITY
       self.delay_jobs        = DEFAULT_DELAY_JOBS
       self.queues            = DEFAULT_QUEUES
+      self.queue_attributes  = DEFAULT_QUEUE_ATTRIBUTES
       self.read_ahead        = DEFAULT_READ_AHEAD
       @lifecycle             = nil
     end
@@ -142,7 +143,7 @@ module Delayed
     # it crashed before.
     def name
       return @name unless @name.nil?
-      "#{@name_prefix}host:#{Socket.gethostname} pid:#{Process.pid}" rescue "#{@name_prefix}pid:#{Process.pid}" # rubocop:disable RescueModifier
+      "#{@name_prefix}host:#{Socket.gethostname} pid:#{Process.pid}" rescue "#{@name_prefix}pid:#{Process.pid}"
     end
 
     # Sets the name of the worker.
@@ -188,7 +189,7 @@ module Delayed
             end
           end
 
-          count = @result.sum
+          count = @result[0] + @result[1]
 
           if count.zero?
             if self.class.exit_on_complete
@@ -221,7 +222,8 @@ module Delayed
     # Do num jobs and return stats on success/failure.
     # Exit early if interrupted.
     def work_off(num = 100)
-      success, failure = 0, 0
+      success = 0
+      failure = 0
 
       num.times do
         case reserve_and_run_one_job
@@ -230,7 +232,7 @@ module Delayed
         when false
           failure += 1
         else
-          break  # leave if no work could be done
+          break # leave if no work could be done
         end
         break if stop? # leave if we're exiting
       end
@@ -240,18 +242,18 @@ module Delayed
 
     def run(job)
       job_say job, 'RUNNING'
-      runtime =  Benchmark.realtime do
+      runtime = Benchmark.realtime do
         Timeout.timeout(max_run_time(job).to_i, WorkerTimeout) { job.invoke_job }
         job.destroy
       end
       job_say job, format('COMPLETED after %.4f', runtime)
-      return true  # did work
+      return true # did work
     rescue DeserializationError => error
       job.error = error
       failed(job)
-    rescue => error
+    rescue Exception => error # rubocop:disable RescueException
       self.class.lifecycle.run_callbacks(:error, self, job) { handle_failed_job(job, error) }
-      return false  # work failed
+      return false # work failed
     end
 
     # Reschedule the job in the future (when a job fails).

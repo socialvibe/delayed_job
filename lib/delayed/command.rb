@@ -32,7 +32,7 @@ module Delayed
           exit 1
         end
         opt.on('-e', '--environment=NAME', 'Specifies the environment to run this delayed jobs under (test/development/production).') do |_e|
-          STDERR.puts 'The -e/--environment option has been deprecated and has no effect. Use RAILS_ENV and see http://github.com/collectiveidea/delayed_job/issues/#issue/7'
+          STDERR.puts 'The -e/--environment option has been deprecated and has no effect. Use RAILS_ENV and see http://github.com/collectiveidea/delayed_job/issues/7'
         end
         opt.on('--min-priority N', 'Minimum priority of jobs to run.') do |n|
           @options[:min_priority] = n
@@ -41,7 +41,7 @@ module Delayed
           @options[:max_priority] = n
         end
         opt.on('-n', '--number_of_workers=workers', 'Number of unique workers to spawn') do |worker_count|
-          @worker_count = worker_count.to_i rescue 1 # rubocop:disable RescueModifier
+          @worker_count = worker_count.to_i rescue 1
         end
         opt.on('--pid-dir=DIR', 'Specifies an alternate directory in which to store the process ids.') do |dir|
           @options[:pid_dir] = dir

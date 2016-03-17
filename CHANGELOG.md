@@ -1,3 +1,17 @@
+4.1.1 - 2015-09-24
+==================
+* Fix shared specs for back-ends that reload objects
+
+4.1.0 - 2015-09-22
+==================
+* Alter `Delayed::Command` to work with or without Rails
+* Allow `Delayed::Worker.delay_jobs` configuration to be a proc
+* Add ability to set destroy failed jobs on a per job basis
+* Make `Delayed::Worker.new` idempotent
+* Set quiet from the environment
+* Rescue `Exception` instead of `StandardError` in worker
+* Fix worker crash on serialization error
+
 4.0.6 - 2014-12-22
 ==================
 * Revert removing test files from the gem

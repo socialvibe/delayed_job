@@ -1,6 +1,6 @@
 require File.expand_path('../../../../spec/sample_jobs', __FILE__)
 
-require 'active_support/core_ext'
+require 'active_support/core_ext/numeric/time'
 
 shared_examples_for 'a delayed_job backend' do
   let(:worker) { Delayed::Worker.new }
@@ -161,7 +161,7 @@ shared_examples_for 'a delayed_job backend' do
       job = described_class.enqueue(CallbackJob.new)
       expect(job.payload_object).to receive(:perform).and_raise(RuntimeError.new('fail'))
 
-      expect { job.invoke_job }.to raise_error
+      expect { job.invoke_job }.to raise_error(RuntimeError)
       expect(CallbackJob.messages).to eq(['enqueue', 'before', 'error: RuntimeError', 'after'])
     end
 
@@ -314,6 +314,12 @@ shared_examples_for 'a delayed_job backend' do
       end
       expect(described_class.reserve(worker)).to be_nil
     end
+
+    it 'sets job priority based on queue_attributes configuration' do
+      Delayed::Worker.queue_attributes = [{:name => 'job_tracking', :priority => 4}]
+      job = described_class.enqueue :payload_object => NamedQueueJob.new
+      expect(job.priority).to eq(4)
+    end
   end
 
   context 'clear_locks!' do
@@ -451,17 +457,30 @@ shared_examples_for 'a delayed_job backend' do
   end
 
   describe 'destroy_failed_jobs' do
-    before(:each) do
-      @job = described_class.enqueue SimpleJob.new
+    context 'with a SimpleJob' do
+      before(:each) do
+        @job = described_class.enqueue SimpleJob.new
+      end
+
+      it 'is not defined' do
+        expect(@job.destroy_failed_jobs?).to be true
+      end
+
+      it 'uses the destroy failed jobs value on the payload when defined' do
+        expect(@job.payload_object).to receive(:destroy_failed_jobs?).and_return(false)
+        expect(@job.destroy_failed_jobs?).to be false
+      end
     end
 
-    it 'is not defined' do
-      expect(@job.destroy_failed_jobs?).to be true
-    end
+    context 'with a job that raises DserializationError' do
+      before(:each) do
+        @job = described_class.new :handler => '--- !ruby/struct:GoingToRaiseArgError {}'
+      end
 
-    it 'uses the destroy failed jobs value on the payload when defined' do
-      expect(@job.payload_object).to receive(:destroy_failed_jobs?).and_return(false)
-      expect(@job.destroy_failed_jobs?).to be false
+      it 'falls back reasonably' do
+        expect(YAML).to receive(:load_dj).and_raise(ArgumentError)
+        expect(@job.destroy_failed_jobs?).to be true
+      end
     end
   end
 
@@ -529,7 +548,7 @@ shared_examples_for 'a delayed_job backend' do
         it 'marks the job as failed' do
           Delayed::Worker.destroy_failed_jobs = false
           job = described_class.create! :handler => '--- !ruby/object:JobThatDoesNotExist {}'
-          expect(job).to receive(:destroy_failed_jobs?).and_return(false)
+          expect_any_instance_of(described_class).to receive(:destroy_failed_jobs?).and_return(false)
           worker.work_off
           job.reload
           expect(job).to be_failed
@@ -561,7 +580,6 @@ shared_examples_for 'a delayed_job backend' do
       it 're-schedules jobs after failing' do
         worker.work_off
         @job.reload
-        expect(@job.error).to_not be_nil
         expect(@job.last_error).to match(/did not work/)
         expect(@job.last_error).to match(/sample_jobs.rb:\d+:in `perform'/)
         expect(@job.attempts).to eq(1)

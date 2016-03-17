@@ -1,3 +1,8 @@
+**If you're viewing this at https://github.com/collectiveidea/delayed_job,
+you're reading the documentation for the master branch.
+[View documentation for the latest release
+(4.1.1).](https://github.com/collectiveidea/delayed_job/tree/v4.1.1)**
+
 Delayed::Job
 ============
 [![Gem Version](https://badge.fury.io/rb/delayed_job.png)][gem]
@@ -119,9 +124,17 @@ device = Device.new
 device.deliver
 ```
 
-handle_asynchronously can take as options anything you can pass to delay. In
-addition, the values can be Proc objects allowing call time evaluation of the
-value. For some examples:
+## Parameters
+
+`#handle_asynchronously` and `#delay` take these parameters:
+
+- `:priority` (number): lower numbers run first; default is 0 but can be reconfigured (see below)
+- `:run_at` (Time): run the job after this time (probably in the future)
+- `:queue` (string): named queue to put this job in, an alternative to priorities (see below)
+
+These params can be Proc objects, allowing call-time evaluation of the value.
+
+For example:
 
 ```ruby
 class LongTasks
@@ -190,6 +203,15 @@ object.delay(:queue => 'tracking').method
 Delayed::Job.enqueue job, :queue => 'tracking'
 
 handle_asynchronously :tweet_later, :queue => 'tweets'
+```
+
+You can configure default priorities for named queues:
+
+```ruby
+Delayed::Worker.queue_attributes = [
+  { name: :high_priority, priority: -10 },
+  { name: :low_priority, priority: 10 }
+]
 ```
 
 Running Jobs
@@ -411,6 +433,8 @@ By default all jobs are scheduled with `priority = 0`, which is top priority. Yo
 The default behavior is to read 5 jobs from the queue when finding an available job. You can configure this by setting `Delayed::Worker.read_ahead`.
 
 By default all jobs will be queued without a named queue. A default named queue can be specified by using `Delayed::Worker.default_queue_name`.
+
+If no jobs are found, the worker sleeps for the amount of time specified by the sleep delay option. Set `Delayed::Worker.sleep_delay = 60` for a 60 second sleep time.
 
 It is possible to disable delayed jobs for testing purposes. Set `Delayed::Worker.delay_jobs = false` to execute all jobs realtime.
 

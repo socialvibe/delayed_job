@@ -1,5 +1,3 @@
-require 'active_support/core_ext/module/aliasing'
-
 module Delayed
   class DelayProxy < Delayed::Compatibility.proxy_object_class
     def initialize(payload_class, target, options)
@@ -30,9 +28,11 @@ module Delayed
     end
 
     module ClassMethods
-      def handle_asynchronously(method, opts = {})
-        aliased_method, punctuation = method.to_s.sub(/([?!=])$/, ''), $1 # rubocop:disable PerlBackrefs
-        with_method, without_method = "#{aliased_method}_with_delay#{punctuation}", "#{aliased_method}_without_delay#{punctuation}"
+      def handle_asynchronously(method, opts = {}) # rubocop:disable PerceivedComplexity
+        aliased_method = method.to_s.sub(/([?!=])$/, '')
+        punctuation = $1 # rubocop:disable PerlBackrefs
+        with_method = "#{aliased_method}_with_delay#{punctuation}"
+        without_method = "#{aliased_method}_without_delay#{punctuation}"
         define_method(with_method) do |*args|
           curr_opts = opts.clone
           curr_opts.each_key do |key|
@@ -45,7 +45,17 @@ module Delayed
           end
           delay(curr_opts).__send__(without_method, *args)
         end
-        alias_method_chain method, :delay
+
+        alias_method without_method, method
+        alias_method method, with_method
+
+        if public_method_defined?(without_method)
+          public method
+        elsif protected_method_defined?(without_method)
+          protected method
+        elsif private_method_defined?(without_method)
+          private method
+        end
       end
     end
   end
