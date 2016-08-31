@@ -1,7 +1,7 @@
 **If you're viewing this at https://github.com/collectiveidea/delayed_job,
 you're reading the documentation for the master branch.
 [View documentation for the latest release
-(4.1.1).](https://github.com/collectiveidea/delayed_job/tree/v4.1.1)**
+(4.1.2).](https://github.com/collectiveidea/delayed_job/tree/v4.1.2)**
 
 Delayed::Job
 ============
@@ -208,10 +208,16 @@ handle_asynchronously :tweet_later, :queue => 'tweets'
 You can configure default priorities for named queues:
 
 ```ruby
-Delayed::Worker.queue_attributes = [
-  { name: :high_priority, priority: -10 },
-  { name: :low_priority, priority: 10 }
-]
+Delayed::Worker.queue_attributes = {
+  high_priority: { priority: -10 },
+  low_priority: { priority: 10 }
+}
+```
+
+Configured queue priorities can be overriden by passing priority to the delay method
+
+```ruby
+object.delay(:queue => 'high_priority', priority: 0).method
 ```
 
 Running Jobs

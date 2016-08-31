@@ -1,3 +1,5 @@
+# -*- encoding: utf-8 -*-
+
 Gem::Specification.new do |spec|
   spec.add_dependency 'activesupport', ['>= 3.0', '< 5.1']
   spec.authors        = ['Brandon Keepers', 'Brian Ryckbost', 'Chris Gaffney', 'David Genord II', 'Erik Michaels-Ober', 'Matt Griffin', 'Steve Richert', 'Tobias Lutke']
@@ -11,5 +13,5 @@ Gem::Specification.new do |spec|
   spec.require_paths  = ['lib']
   spec.summary        = 'Database-backed asynchronous priority queue system -- Extracted from Shopify'
   spec.test_files     = Dir.glob('spec/**/*')
-  spec.version        = '4.1.1'
+  spec.version        = '4.1.2'
 end
