@@ -22,7 +22,6 @@ module Delayed
         :log_dir => "#{root}/log"
       }.merge!(options)
 
-      @worker_count = 1
       @monitor = false
 
       opts = OptionParser.new do |opt|
@@ -42,7 +41,7 @@ module Delayed
           @options[:max_priority] = n
         end
         opt.on('-n', '--number_of_workers=workers', 'Number of unique workers to spawn') do |worker_count|
-          @worker_count = worker_count.to_i rescue 1
+          @worker_count = worker_count.to_i rescue nil
         end
         opt.on('--pid-dir=DIR', 'Specifies an alternate directory in which to store the process ids.') do |dir|
           @options[:pid_dir] = dir
@@ -81,7 +80,38 @@ module Delayed
           @daemon_options = daemon_options
         end
       end
+
       @args = opts.parse!(args) + (@daemon_options || [])
+      @worker_count ||= default_workers
+
+      @args
+    end
+
+    def process_name(index)
+      if @options[:identifier]
+        "delayed_job.#{@options[:identifier]}.#{index}"
+      else
+        "delayed_job.#{index}"
+      end
+    end
+
+    def default_workers
+      # this is an attempt to auto-detect the number of workers when .pid files are present
+      dir = @options[:pid_dir]
+      entries = Dir["#{dir}/delayed_job.*"]
+
+      filenames = entries.map { |file|
+        file.split('/').last
+      }.select { |file|
+        file.end_with? '.pid'
+      }
+
+      largest_index = filenames.reduce(0) do |memo, file|
+        index = file.split('.')[-2].to_i rescue 0
+        index > memo ? index : memo
+      end
+
+      [largest_index + 1, filenames.length].max
     end
 
     def daemonize # rubocop:disable PerceivedComplexity
@@ -90,16 +120,9 @@ module Delayed
 
       if worker_pools
         setup_pools
-      elsif @options[:identifier]
-        if worker_count > 1
-          raise ArgumentError, 'Cannot specify both --number-of-workers and --identifier'
-        else
-          run_process("delayed_job.#{@options[:identifier]}", @options)
-        end
       else
         worker_count.times do |worker_index|
-          process_name = worker_count == 1 ? 'delayed_job' : "delayed_job.#{worker_index}"
-          run_process(process_name, @options)
+          run_process(process_name(worker_index), @options)
         end
       end
     end
@@ -109,8 +132,7 @@ module Delayed
       @worker_pools.each do |queues, worker_count|
         options = @options.merge(:queues => queues)
         worker_count.times do
-          process_name = "delayed_job.#{worker_index}"
-          run_process(process_name, options)
+          run_process(process_name(worker_index), options)
           worker_index += 1
         end
       end
