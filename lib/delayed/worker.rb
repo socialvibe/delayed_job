@@ -254,6 +254,8 @@ module Delayed
       job_say job, format('COMPLETED after %.4f', runtime)
       return true # did work
     rescue DeserializationError => error
+      job_say job, "FAILED permanently with #{error.class.name}: #{error.message}", 'error'
+
       job.error = error
       failed(job)
     rescue Exception => error # rubocop:disable RescueException
@@ -289,7 +291,7 @@ module Delayed
     end
 
     def job_say(job, text, level = default_log_level)
-      text = "Job #{job.name} (id=#{job.id}) #{text}"
+      text = "Job #{job.name} (id=#{job.id})#{say_queue(job.queue)} #{text}"
       say text, level
     end
 
@@ -313,6 +315,10 @@ module Delayed
     end
 
   protected
+
+    def say_queue(queue)
+      " (queue=#{queue})" if queue
+    end
 
     def handle_failed_job(job, error)
       job.error = error
@@ -344,8 +350,12 @@ module Delayed
 
     def reload!
       return unless self.class.reload_app?
-      ActionDispatch::Reloader.cleanup!
-      ActionDispatch::Reloader.prepare!
+      if defined?(ActiveSupport::Reloader)
+        Rails.application.reloader.reload!
+      else
+        ActionDispatch::Reloader.cleanup!
+        ActionDispatch::Reloader.prepare!
+      end
     end
   end
 end

@@ -120,6 +120,14 @@ module Delayed
 
       if worker_pools
         setup_pools
+      elsif @options[:identifier]
+        # rubocop:disable GuardClause
+        if worker_count > 1
+          raise ArgumentError, 'Cannot specify both --number-of-workers and --identifier'
+        else
+          run_process("delayed_job.#{@options[:identifier]}", @options)
+        end
+        # rubocop:enable GuardClause
       else
         worker_count.times do |worker_index|
           run_process(process_name(worker_index), @options)

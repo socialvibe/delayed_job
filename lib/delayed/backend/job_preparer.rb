@@ -4,7 +4,7 @@ module Delayed
       attr_reader :options, :args
 
       def initialize(*args)
-        @options = args.extract_options!
+        @options = args.extract_options!.dup
         @args = args
       end
 
@@ -42,9 +42,11 @@ module Delayed
           options[:run_at]   = args[1]
         end
 
+        # rubocop:disable GuardClause
         unless options[:payload_object].respond_to?(:perform)
           raise ArgumentError, 'Cannot enqueue items which do not respond to perform'
         end
+        # rubocop:enabled GuardClause
       end
     end
   end
