@@ -50,7 +50,8 @@ module Delayed
       attr_reader :error
       def error=(error)
         @error = error
-        self.last_error = "#{error.message}\n#{error.backtrace.join("\n")}" if respond_to?(:last_error=)
+        # default max size of a text column is 65,536
+        self.last_error = "#{error.message}\n#{error.backtrace.join("\n")}"[0...65_535] if respond_to?(:last_error=)
       end
 
       def failed?
