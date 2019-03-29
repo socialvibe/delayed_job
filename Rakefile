@@ -9,7 +9,4 @@ end
 
 task :test => :spec
 
-require 'rubocop/rake_task'
-RuboCop::RakeTask.new
-
-task :default => [:spec, :rubocop]
+task :default => [:spec]
